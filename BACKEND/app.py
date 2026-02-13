@@ -1,9 +1,12 @@
+from dotenv import load_dotenv
+load_dotenv()
 from flask_cors import CORS
 from s3_config import s3, BUCKET_NAME
 from flask import Flask, request, jsonify
 from db import init_db, mysql
 import bcrypt
-from flask_jwt_extended import JWTManager, create_access_token
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+
 
 app = Flask(__name__)
 CORS(app)
@@ -95,27 +98,36 @@ def login():
 
 # ☁️ FILE UPLOAD API
 @app.route("/upload", methods=["POST"])
+@jwt_required()
 def upload_file():
     try:
-        if "file" not in request.files:
-            return jsonify({"error": "No file provided"}), 400
-
         file = request.files["file"]
-
         s3.upload_fileobj(file, BUCKET_NAME, file.filename)
 
         file_url = f"https://{BUCKET_NAME}.s3.ap-south-1.amazonaws.com/{file.filename}"
 
-        return jsonify({
-            "message": "File uploaded successfully!",
-            "file_url": file_url
-        })
+        return jsonify({"file_url": file_url})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# 📄 GET ALL FILES FROM S3
+
+
+
+# 🗑️ DELETE FILE FROM S3
+@app.route("/delete/<filename>", methods=["DELETE"])
+@jwt_required()
+def delete_file(filename):
+    try:
+        s3.delete_object(Bucket=BUCKET_NAME, Key=filename)
+        return jsonify({"message":"Deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# 📂 LIST FILES WITH SIZE (UPDATED)
 @app.route("/files", methods=["GET"])
+@jwt_required()
 def list_files():
     try:
         response = s3.list_objects_v2(Bucket=BUCKET_NAME)
@@ -123,22 +135,30 @@ def list_files():
         files = []
         if "Contents" in response:
             for obj in response["Contents"]:
-                files.append(obj["Key"])
+                files.append({
+                    "name": obj["Key"],
+                    "size": round(obj["Size"]/1024, 2)
+                })
 
         return jsonify(files)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-# 🗑️ DELETE FILE FROM S3
-@app.route("/delete/<filename>", methods=["DELETE"])
-def delete_file(filename):
+# 🔐 GENERATE SECURE DOWNLOAD LINK
+@app.route("/download/<filename>", methods=["GET"])
+@jwt_required()
+def download_file(filename):
     try:
-        s3.delete_object(Bucket=BUCKET_NAME, Key=filename)
-        return jsonify({"message": "File deleted"})
+        url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': BUCKET_NAME, 'Key': filename},
+            ExpiresIn=60  # link valid for 60 seconds
+        )
+        return jsonify({"url": url})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
+
