@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>CloudVault Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- logo top left -->
+<img src="logo.png" class="top-logo">
+
+<div class="card dashboard-card">
+
+  <h2>☁️ My CloudVault</h2>
+
+<div class="upload-area">
+    <input type="file" id="fileInput">
+    <button onclick="uploadFile()">Upload File</button>
+</div>
+
+<h3>📂 My Files</h3>
+<div id="fileList">Loading files...</div>
+
+<button class="logout-btn" onclick="logout()">Logout</button>
+
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

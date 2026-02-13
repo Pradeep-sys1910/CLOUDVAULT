@@ -1,0 +1,193 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    height:100vh;
+    background: linear-gradient(135deg,#0f172a,#1e3a8a,#2563eb);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;
+}
+
+/* floating glow background */
+body::before{
+    content:"";
+    position:absolute;
+    width:600px;
+    height:600px;
+    background:rgba(255,255,255,0.08);
+    border-radius:50%;
+    filter:blur(120px);
+    top:-200px;
+    left:-200px;
+    animation: float 8s infinite ease-in-out;
+}
+
+@keyframes float{
+    50%{ transform: translate(40px,40px);}
+}
+
+/* top left logo */
+.topLogo{
+    position:absolute;
+    top:25px;
+    left:30px;
+    width:140px;
+    animation: floatLogo 4s infinite ease-in-out;
+}
+
+@keyframes floatLogo{
+    50%{ transform:translateY(-8px);}
+}
+
+/* glass card */
+.card{
+    backdrop-filter: blur(20px);
+    background: rgba(255,255,255,0.12);
+    padding:40px;
+    width:340px;
+    border-radius:20px;
+    text-align:center;
+    color:white;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
+    animation: pop 0.8s ease;
+}
+
+@keyframes pop{
+    from{ transform:scale(.8); opacity:0;}
+    to{ transform:scale(1); opacity:1;}
+}
+
+.card img{
+    width:70px;
+    margin-bottom:10px;
+    animation: floatLogo 4s infinite ease-in-out;
+}
+
+h2{ margin-bottom:20px; }
+
+input{
+    width:100%;
+    padding:12px;
+    margin:10px 0;
+    border:none;
+    border-radius:8px;
+    outline:none;
+}
+
+button{
+    width:100%;
+    padding:12px;
+    margin-top:10px;
+    border:none;
+    border-radius:8px;
+    background:linear-gradient(90deg,#2563eb,#60a5fa);
+    color:white;
+    font-size:15px;
+    cursor:pointer;
+    transition:.3s;
+}
+
+button:hover{
+    transform:scale(1.05);
+    box-shadow:0 10px 25px rgba(0,0,0,.3);
+}
+
+a{ color:#c7d2fe; }
+
+.top-logo{
+    position:absolute;
+    top:20px;
+    left:20px;
+    width:120px;
+}
+
+.dashboard{
+    text-align:center;
+    color:white;
+}
+
+.upload-box{
+    margin-top:30px;
+}
+
+/* DASHBOARD CARD */
+.dashboard-card{
+    width:380px;
+}
+
+/* upload section */
+.upload-area{
+    margin:20px 0;
+}
+
+#fileInput{
+    background:white;
+}
+
+/* upload message */
+#uploadStatus{
+    margin-top:15px;
+    font-size:14px;
+    color:#c7d2fe;
+}
+
+/* logout button */
+.logout-btn{
+    margin-top:25px;
+    background:linear-gradient(90deg,#ef4444,#f87171);
+}
+/* FILE LIST */
+#fileList{
+    margin-top:15px;
+    text-align:left;
+    max-height:220px;
+    overflow-y:auto;
+}
+
+.file-item{
+    background:rgba(255,255,255,0.1);
+    padding:10px;
+    margin:8px 0;
+    border-radius:8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:14px;
+}
+
+.delete-btn{
+    background:#ef4444;
+    padding:5px 10px;
+    font-size:12px;
+}
+.file-item{
+    background:rgba(255,255,255,0.12);
+    padding:12px;
+    margin:10px 0;
+    border-radius:10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.file-left{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.file-icon{
+    font-size:22px;
+}
+
+.file-actions button{
+    margin-left:5px;
+    padding:6px 10px;
+    font-size:12px;
+}
