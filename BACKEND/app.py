@@ -1,36 +1,39 @@
-from dotenv import load_dotenv
-load_dotenv()
-from flask_cors import CORS
-from s3_config import s3, BUCKET_NAME
-from flask import Flask, request, jsonify
-from db import init_db, mysql
+import os
+import uuid
 import bcrypt
+from datetime import datetime, timedelta
+from flask_mail import Mail, Message
+from dotenv import load_dotenv
+from flask_cors import CORS
+from flask import Flask, request, jsonify
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from db import init_db, mysql
+from s3_config import s3, BUCKET_NAME
 
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-
 init_db(app)
 
-# JWT secret key
-app.config["JWT_SECRET_KEY"] = "supersecretkey"
+# ================= JWT =================
+app.config["JWT_SECRET_KEY"] = "cloudvault-super-secret-jwt-key-2026-secure"
 jwt = JWTManager(app)
 
-# Home route
-@app.route("/")
-def home():
-    return jsonify({"message": "CloudVault API Running 🚀"})
+# ================= MAIL CONFIG =================
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv("EMAIL_USER")
+app.config['MAIL_PASSWORD'] = os.getenv("EMAIL_PASS")
 
+mail = Mail(app)
 
+# ================= SIGNUP =================
 @app.route("/signup", methods=["POST"])
 def signup():
     try:
         data = request.get_json(force=True)
-
-        if not data:
-            return jsonify({"error":"No data received"}),400
-
         name = data.get("name")
         email = data.get("email")
         password = data.get("password")
@@ -38,127 +41,205 @@ def signup():
         if not name or not email or not password:
             return jsonify({"error":"All fields required"}),400
 
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
 
         cursor = mysql.connection.cursor()
-
-        cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
+        cursor.execute("SELECT * FROM users WHERE email=%s",(email,))
         if cursor.fetchone():
-            return jsonify({"error": "Email already registered"}), 400
+            cursor.close()
+            return jsonify({"error":"Email already registered"}),400
+
+        verify_token = str(uuid.uuid4())
 
         cursor.execute(
-            "INSERT INTO users (name, email, password) VALUES (%s,%s,%s)",
-            (name, email, hashed_password)
+            "INSERT INTO users (name,email,password,verify_token) VALUES (%s,%s,%s,%s)",
+            (name,email,hashed,verify_token)
         )
-
         mysql.connection.commit()
         cursor.close()
 
-        return jsonify({"message":"User registered successfully!"}),201
+        # 🔗 verification link
+        verify_link = f"http://127.0.0.1:5000/verify-email/{verify_token}"
+
+        msg = Message(
+            "Verify CloudVault Account ☁️",
+            sender=os.getenv("EMAIL_USER"),
+            recipients=[email]
+        )
+        msg.body = f"Verify your account:\n{verify_link}"
+
+        try:
+            mail.send(msg)
+            print("Verification email sent")
+            return jsonify({"message":"Signup successful! Check your email to verify account 📧"}),201
+        except Exception as e:
+            print("MAIL ERROR:", e)
+            # Even if mail fails → user still created
+            return jsonify({
+                "message":"Signup successful but email failed. Contact admin.",
+                "debug_verify_link": verify_link
+            }),201
 
     except Exception as e:
-        print(e)
-        return jsonify({"error":str(e)}),500
+        print("SIGNUP ERROR:", e)
+        return jsonify({"error":"Server error during signup"}),500
 
 
 
+# ================= EMAIL VERIFY =================
+@app.route("/verify-email/<token>")
+def verify_email(token):
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT * FROM users WHERE verify_token=%s",(token,))
+    user = cursor.fetchone()
+
+    if not user:
+        return "Invalid verification link"
+
+    cursor.execute("UPDATE users SET is_verified=TRUE, verify_token=NULL WHERE verify_token=%s",(token,))
+    mysql.connection.commit()
+    cursor.close()
+
+    return "Email verified! You can login now."
+
+
+# ================= LOGIN =================
 @app.route("/login", methods=["POST"])
 def login():
+    data = request.get_json(force=True)
+    email,password = data.get("email"),data.get("password")
+
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT * FROM users WHERE email=%s",(email,))
+    user = cursor.fetchone()
+    cursor.close()
+
+    if not user:
+        return jsonify({"error":"User not found"}),404
+
+    if not user[4]:
+        return jsonify({"error":"Verify email first"}),403
+
+    if not bcrypt.checkpw(password.encode(), user[3].encode()):
+        return jsonify({"error":"Wrong password"}),401
+
+    token = create_access_token(identity=email)
+    return jsonify({"token":token})
+
+
+# ================= FORGOT PASSWORD =================
+@app.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    email = request.json.get("email")
+
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT * FROM users WHERE email=%s",(email,))
+    user = cursor.fetchone()
+
+    if not user:
+        return jsonify({"error":"Email not registered"}),404
+
+    token = str(uuid.uuid4())
+    expiry = datetime.now() + timedelta(minutes=10)
+
+    cursor.execute("UPDATE users SET reset_token=%s, reset_expiry=%s WHERE email=%s",(token,expiry,email))
+    mysql.connection.commit()
+    cursor.close()
+
+    reset_link = f"http://127.0.0.1:5500/reset.html?token={token}"
+
+    msg = Message("CloudVault Reset 🔐",
+        sender=os.getenv("EMAIL_USER"),
+        recipients=[email])
+    msg.body = f"Reset password:\n{reset_link}"
     try:
-        data = request.get_json(force=True)
-
-        email = data.get("email")
-        password = data.get("password")
-
-        if not email or not password:
-            return jsonify({"error":"Missing fields"}),400
-
-        cursor = mysql.connection.cursor()
-        cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
-        user = cursor.fetchone()
-        cursor.close()
-
-        if not user:
-            return jsonify({"error":"User not found"}),404
-
-        stored_password = user[3].encode('utf-8')
-
-        if bcrypt.checkpw(password.encode('utf-8'), stored_password):
-            token = create_access_token(identity=email)
-            return jsonify({"token":token}),200
-
-        return jsonify({"error":"Invalid password"}),401
-
+        mail.send(msg)
+        print("Reset email sent")
+        return jsonify({"message":"Password reset link sent to email 📧"})
     except Exception as e:
-        print(e)
-        return jsonify({"error":str(e)}),500
+        print("MAIL ERROR:", e)
+        return jsonify({
+        "message":"Mail failed but reset link generated",
+        "debug_reset_link": reset_link
+    })
 
 
 
+# ================= RESET PASSWORD =================
+@app.route("/reset-password", methods=["POST"])
+def reset_password():
+    token = request.json.get("token")
+    new_password = request.json.get("password")
 
-# ☁️ FILE UPLOAD API
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT * FROM users WHERE reset_token=%s",(token,))
+    user = cursor.fetchone()
+
+    if not user:
+        return jsonify({"error":"Invalid token"}),400
+
+    if datetime.now() > user[6]:
+        return jsonify({"error":"Token expired"}),400
+
+    hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt())
+
+    cursor.execute("UPDATE users SET password=%s, reset_token=NULL, reset_expiry=NULL WHERE reset_token=%s",(hashed,token))
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"message":"Password updated"})
+
+
+# ================= UPLOAD FILE =================
 @app.route("/upload", methods=["POST"])
 @jwt_required()
 def upload_file():
-    try:
-        file = request.files["file"]
-        s3.upload_fileobj(file, BUCKET_NAME, file.filename)
+    user = get_jwt_identity()
+    file = request.files["file"]
 
-        file_url = f"https://{BUCKET_NAME}.s3.ap-south-1.amazonaws.com/{file.filename}"
+    key = f"{user}/{file.filename}"
+    s3.upload_fileobj(file, BUCKET_NAME, key)
 
-        return jsonify({"file_url": file_url})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"message":"Uploaded"})
 
 
-
-
-# 🗑️ DELETE FILE FROM S3
-@app.route("/delete/<filename>", methods=["DELETE"])
-@jwt_required()
-def delete_file(filename):
-    try:
-        s3.delete_object(Bucket=BUCKET_NAME, Key=filename)
-        return jsonify({"message":"Deleted"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# 📂 LIST FILES WITH SIZE (UPDATED)
+# ================= LIST FILES =================
 @app.route("/files", methods=["GET"])
 @jwt_required()
 def list_files():
-    try:
-        response = s3.list_objects_v2(Bucket=BUCKET_NAME)
+    user = get_jwt_identity()
+    response = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=user+"/")
 
-        files = []
-        if "Contents" in response:
-            for obj in response["Contents"]:
-                files.append({
-                    "name": obj["Key"],
-                    "size": round(obj["Size"]/1024, 2)
-                })
+    files=[]
+    if "Contents" in response:
+        for obj in response["Contents"]:
+            files.append({
+                "name": obj["Key"].split("/")[-1],
+                "size": round(obj["Size"]/1024,2)
+            })
 
-        return jsonify(files)
+    return jsonify(files)
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-# 🔐 GENERATE SECURE DOWNLOAD LINK
-@app.route("/download/<filename>", methods=["GET"])
+
+# ================= DELETE =================
+@app.route("/delete/<filename>", methods=["DELETE"])
+@jwt_required()
+def delete_file(filename):
+    user = get_jwt_identity()
+    s3.delete_object(Bucket=BUCKET_NAME, Key=f"{user}/{filename}")
+    return jsonify({"message":"Deleted"})
+
+
+# ================= DOWNLOAD =================
+@app.route("/download/<filename>")
 @jwt_required()
 def download_file(filename):
-    try:
-        url = s3.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': BUCKET_NAME, 'Key': filename},
-            ExpiresIn=60  # link valid for 60 seconds
-        )
-        return jsonify({"url": url})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    user = get_jwt_identity()
+    url = s3.generate_presigned_url("get_object",
+        Params={"Bucket":BUCKET_NAME,"Key":f"{user}/{filename}"},
+        ExpiresIn=60)
+    return jsonify({"url":url})
 
 
 if __name__ == "__main__":
-    app.run()
-
+    app.run(debug=True)
