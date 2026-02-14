@@ -26,7 +26,6 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.getenv("EMAIL_USER")
 app.config['MAIL_PASSWORD'] = os.getenv("EMAIL_PASS")
-
 mail = Mail(app)
 
 # ================= SIGNUP =================
@@ -34,9 +33,7 @@ mail = Mail(app)
 def signup():
     try:
         data = request.get_json(force=True)
-        name = data.get("name")
-        email = data.get("email")
-        password = data.get("password")
+        name,email,password = data.get("name"),data.get("email"),data.get("password")
 
         if not name or not email or not password:
             return jsonify({"error":"All fields required"}),400
@@ -58,7 +55,6 @@ def signup():
         mysql.connection.commit()
         cursor.close()
 
-        # 🔗 verification link
         verify_link = f"http://127.0.0.1:5000/verify-email/{verify_token}"
 
         msg = Message(
@@ -70,20 +66,14 @@ def signup():
 
         try:
             mail.send(msg)
-            print("Verification email sent")
-            return jsonify({"message":"Signup successful! Check your email to verify account 📧"}),201
+            return jsonify({"message":"Signup successful! Check your email 📧"}),201
         except Exception as e:
             print("MAIL ERROR:", e)
-            # Even if mail fails → user still created
-            return jsonify({
-                "message":"Signup successful but email failed. Contact admin.",
-                "debug_verify_link": verify_link
-            }),201
+            return jsonify({"message":"Signup ok but mail failed", "debug_verify_link":verify_link}),201
 
     except Exception as e:
         print("SIGNUP ERROR:", e)
-        return jsonify({"error":"Server error during signup"}),500
-
+        return jsonify({"error":"Server error"}),500
 
 
 # ================= EMAIL VERIFY =================
@@ -99,52 +89,42 @@ def verify_email(token):
     cursor.execute("UPDATE users SET is_verified=TRUE, verify_token=NULL WHERE verify_token=%s",(token,))
     mysql.connection.commit()
     cursor.close()
-
     return "Email verified! You can login now."
-
-# ================= STORAGE STATS =================
-@app.route("/stats", methods=["GET"])
-@jwt_required()
-def stats():
-    user = get_jwt_identity()
-    response = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=user+"/")
-
-    total_size = 0
-    count = 0
-
-    if "Contents" in response:
-        for obj in response["Contents"]:
-            total_size += obj["Size"]
-            count += 1
-
-    return jsonify({
-        "files": count,
-        "storage": round(total_size/(1024*1024),2)
-    })
 
 
 # ================= LOGIN =================
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.get_json(force=True)
-    email,password = data.get("email"),data.get("password")
+    try:
+        data = request.get_json(force=True)
+        email = data.get("email")
+        password = data.get("password")
 
-    cursor = mysql.connection.cursor()
-    cursor.execute("SELECT * FROM users WHERE email=%s",(email,))
-    user = cursor.fetchone()
-    cursor.close()
+        if not email or not password:
+            return jsonify({"error":"Missing email or password"}),400
 
-    if not user:
-        return jsonify({"error":"User not found"}),404
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT * FROM users WHERE email=%s",(email,))
+        user = cursor.fetchone()
+        cursor.close()
 
-    if not user[4]:
-        return jsonify({"error":"Verify email first"}),403
+        if not user:
+            return jsonify({"error":"User not found"}),404
 
-    if not bcrypt.checkpw(password.encode(), user[3].encode()):
-        return jsonify({"error":"Wrong password"}),401
+        # email verification check
+        if not user[4]:
+            return jsonify({"error":"Please verify your email"}),403
 
-    token = create_access_token(identity=email)
-    return jsonify({"token":token})
+        # password check
+        if not bcrypt.checkpw(password.encode(), user[3].encode()):
+            return jsonify({"error":"Wrong password"}),401
+
+        token = create_access_token(identity=email)
+        return jsonify({"token":token}),200
+
+    except Exception as e:
+        print("LOGIN ERROR:", e)
+        return jsonify({"error":"Server login crash"}),500
 
 
 # ================= FORGOT PASSWORD =================
@@ -172,17 +152,13 @@ def forgot_password():
         sender=os.getenv("EMAIL_USER"),
         recipients=[email])
     msg.body = f"Reset password:\n{reset_link}"
+
     try:
         mail.send(msg)
-        print("Reset email sent")
-        return jsonify({"message":"Password reset link sent to email 📧"})
+        return jsonify({"message":"Reset link sent 📧"})
     except Exception as e:
         print("MAIL ERROR:", e)
-        return jsonify({
-        "message":"Mail failed but reset link generated",
-        "debug_reset_link": reset_link
-    })
-
+        return jsonify({"message":"Mail failed", "debug_reset_link":reset_link})
 
 
 # ================= RESET PASSWORD =================
@@ -210,7 +186,7 @@ def reset_password():
     return jsonify({"message":"Password updated"})
 
 
-# ================= UPLOAD FILE =================
+# ================= FILE UPLOAD =================
 @app.route("/upload", methods=["POST"])
 @jwt_required()
 def upload_file():
@@ -231,14 +207,45 @@ def list_files():
     response = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=user+"/")
 
     files=[]
+    total_size=0
+
     if "Contents" in response:
         for obj in response["Contents"]:
+            size_kb = round(obj["Size"]/1024,2)
+            total_size += size_kb
             files.append({
                 "name": obj["Key"].split("/")[-1],
-                "size": round(obj["Size"]/1024,2)
+                "size": size_kb
             })
 
     return jsonify(files)
+
+
+# ================= STORAGE STATS =================
+
+@app.route("/stats")
+@jwt_required()
+def stats():
+    try:
+        user = get_jwt_identity()
+        response = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=user+"/")
+
+        total_size = 0
+        file_count = 0
+
+        if "Contents" in response:
+            for obj in response["Contents"]:
+                total_size += obj["Size"]
+                file_count += 1
+
+        return jsonify({
+            "storage_mb": round(total_size/(1024*1024),2),
+            "files": file_count
+        })
+
+    except Exception as e:
+        print("STATS ERROR:", e)
+        return jsonify({"storage_mb":0,"files":0})
 
 
 # ================= DELETE =================
