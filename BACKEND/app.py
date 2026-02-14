@@ -102,6 +102,26 @@ def verify_email(token):
 
     return "Email verified! You can login now."
 
+# ================= STORAGE STATS =================
+@app.route("/stats", methods=["GET"])
+@jwt_required()
+def stats():
+    user = get_jwt_identity()
+    response = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=user+"/")
+
+    total_size = 0
+    count = 0
+
+    if "Contents" in response:
+        for obj in response["Contents"]:
+            total_size += obj["Size"]
+            count += 1
+
+    return jsonify({
+        "files": count,
+        "storage": round(total_size/(1024*1024),2)
+    })
+
 
 # ================= LOGIN =================
 @app.route("/login", methods=["POST"])
