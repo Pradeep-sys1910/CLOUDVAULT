@@ -15,6 +15,9 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 init_db(app)
+BASE_URL = os.getenv("BASE_URL")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
 
 # ================= JWT =================
 app.config["JWT_SECRET_KEY"] = "cloudvault-super-secret-jwt-key-2026-secure"
@@ -55,7 +58,8 @@ def signup():
         mysql.connection.commit()
         cursor.close()
 
-        verify_link = f"http://127.0.0.1:5000/verify-email/{verify_token}"
+        verify_link = f"{BASE_URL}/verify-email/{verify_token}"
+
 
         msg = Message(
             "Verify CloudVault Account ☁️",
@@ -146,7 +150,8 @@ def forgot_password():
     mysql.connection.commit()
     cursor.close()
 
-    reset_link = f"http://127.0.0.1:5500/reset.html?token={token}"
+    reset_link = f"{FRONTEND_URL}/reset.html?token={token}"
+
 
     msg = Message("CloudVault Reset 🔐",
         sender=os.getenv("EMAIL_USER"),

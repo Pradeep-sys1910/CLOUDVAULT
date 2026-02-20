@@ -5,19 +5,17 @@
     font-family:'Segoe UI',sans-serif;
 }
 
+/* GLOBAL BACKGROUND */
 body{
-    height:100vh;
-    background: linear-gradient(135deg,#0f172a,#1e3a8a,#2563eb);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    overflow:hidden;
+    background:linear-gradient(135deg,#1b2a55,#2f6df6);
+    min-height:100vh;
+    overflow-y:auto;
 }
 
-/* floating glow background */
+/* glowing blob */
 body::before{
     content:"";
-    position:absolute;
+    position:fixed;        /* 🔥 important */
     width:600px;
     height:600px;
     background:rgba(255,255,255,0.08);
@@ -26,13 +24,15 @@ body::before{
     top:-200px;
     left:-200px;
     animation: float 8s infinite ease-in-out;
+    z-index:-1;            /* 🔥 always behind */
 }
+
 
 @keyframes float{
     50%{ transform: translate(40px,40px);}
 }
 
-/* top left logo */
+/* floating logo */
 .topLogo{
     position:absolute;
     top:25px;
@@ -45,12 +45,19 @@ body::before{
     50%{ transform:translateY(-8px);}
 }
 
-/* glass card */
+/* ================================= */
+/* LOGIN + SIGNUP SMALL CARD */
+/* ================================= */
+
+.auth-card{
+    width:340px;
+    margin:160px auto;
+}
+
 .card{
     backdrop-filter: blur(20px);
     background: rgba(255,255,255,0.12);
     padding:40px;
-    width:340px;
     border-radius:20px;
     text-align:center;
     color:white;
@@ -63,14 +70,7 @@ body::before{
     to{ transform:scale(1); opacity:1;}
 }
 
-.card img{
-    width:70px;
-    margin-bottom:10px;
-    animation: floatLogo 4s infinite ease-in-out;
-}
-
-h2{ margin-bottom:20px; }
-
+/* inputs */
 input{
     width:100%;
     padding:12px;
@@ -78,8 +78,10 @@ input{
     border:none;
     border-radius:8px;
     outline:none;
+    font-size:14px;
 }
 
+/* buttons */
 button{
     width:100%;
     padding:12px;
@@ -98,96 +100,147 @@ button:hover{
     box-shadow:0 10px 25px rgba(0,0,0,.3);
 }
 
-a{ color:#c7d2fe; }
+/* ================================= */
+/* DASHBOARD BIG LAYOUT */
+/* ================================= */
 
-.top-logo{
-    position:absolute;
-    top:20px;
-    left:20px;
-    width:120px;
-}
-
-.dashboard{
+/* 🔥 MAIN FIX — WIDE DASHBOARD */
+.dashboard-card{
+    width:1000px;
+    max-width:95%;
+    margin:120px auto 80px auto;
+    backdrop-filter: blur(20px);
+    background: rgba(255,255,255,0.12);
+    padding:40px 60px;
+    border-radius:20px;
     text-align:center;
     color:white;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
 }
 
-.upload-box{
-    margin-top:30px;
+/* storage text */
+.storage-info{
+    font-size:15px;
+    color:#c7d2fe;
+    margin-bottom:20px;
 }
 
-/* DASHBOARD CARD */
-.dashboard-card{
-    width:380px;
-}
-
-/* upload section */
+/* upload area */
 .upload-area{
-    margin:20px 0;
+    margin:25px 0;
 }
 
 #fileInput{
     background:white;
+    padding:10px;
+    border-radius:8px;
 }
 
-/* upload message */
-#uploadStatus{
-    margin-top:15px;
+/* search */
+.search-box{
+    margin-top:20px;
+}
+
+/* 🔥 FILE GRID — ALWAYS INSIDE CARD */
+.file-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:25px;
+    margin-top:25px;
+    width:100%;
+}
+
+/* file card */
+.file-card{
+    background: rgba(255,255,255,0.10);
+    padding:20px;
+    border-radius:15px;
+    text-align:center;
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.5s ease;
+}
+
+/* file text */
+.file-name{
     font-size:14px;
+    word-break: break-word;
+    margin-bottom:8px;
+}
+
+.file-size{
+    font-size:13px;
+    color:#c7d2fe;
+    margin-bottom:10px;
+}
+
+/* logout */
+.logout-btn{
+    margin-top:40px;
+    width:250px;
+    background:linear-gradient(90deg,#ef4444,#f87171);
+}
+
+/* fade animation */
+@keyframes fadeIn{
+    from{opacity:0; transform:translateY(20px);}
+    to{opacity:1; transform:translateY(0);}
+}
+
+.file-grid{
+    margin-top:30px;
+    padding-bottom:10px;
+}
+
+.dashboard-card{
+    position:relative;
+    z-index:2;
+}
+
+.file-selected-text{
+    font-size:13px;
+    margin-top:6px;
     color:#c7d2fe;
 }
 
-/* logout button */
-.logout-btn{
-    margin-top:25px;
-    background:linear-gradient(90deg,#ef4444,#f87171);
-}
-/* FILE LIST */
-#fileList{
-    margin-top:15px;
-    text-align:left;
-    max-height:220px;
-    overflow-y:auto;
-}
+/* ===== UPLOAD PROGRESS ===== */
+.progress-hidden{ display:none; }
 
-.file-item{
-    background:rgba(255,255,255,0.1);
-    padding:10px;
-    margin:8px 0;
-    border-radius:8px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    font-size:14px;
-}
-
-.delete-btn{
-    background:#ef4444;
-    padding:5px 10px;
-    font-size:12px;
-}
-.file-item{
-    background:rgba(255,255,255,0.12);
-    padding:12px;
-    margin:10px 0;
+.progress-bar{
+    width:100%;
+    height:12px;
+    background:rgba(255,255,255,0.2);
     border-radius:10px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
+    margin-top:15px;
+    overflow:hidden;
 }
 
-.file-left{
-    display:flex;
-    align-items:center;
-    gap:10px;
+#uploadProgress{
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,#60a5fa,#2563eb);
+    transition:width .2s;
 }
 
-.file-icon{
-    font-size:22px;
+#uploadPercent{
+    font-size:13px;
+    margin-top:5px;
+    color:#c7d2fe;
+}
+/* ===== FILE SKELETON ===== */
+.skeleton{
+    height:120px;
+    border-radius:15px;
+    background:linear-gradient(
+        90deg,
+        rgba(255,255,255,0.08) 25%,
+        rgba(255,255,255,0.18) 50%,
+        rgba(255,255,255,0.08) 75%
+    );
+    background-size:400% 100%;
+    animation:skeleton 1.2s infinite;
 }
 
-.file-actions button{
-    margin-left:5px;
-    padding:6px 10px;
-    font-size:12px;
+@keyframes skeleton{
+    0%{ background-position:100% 0 }
+    100%{ background-position:-100% 0 }
 }

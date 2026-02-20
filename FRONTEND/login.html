@@ -1,23 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
 <title>CloudVault Login</title>
 <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
+<!-- FLOATING LOGO -->
 <img src="logo.png" class="topLogo">
 
-<div class="card">
+<div class="card auth-card">
+
+
     <h2>Welcome Back ☁️</h2>
 
-    <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
+    <input id="email"
+           type="email"
+           placeholder="Email"
+           autocomplete="email">
+
+    <input id="password"
+           type="password"
+           placeholder="Password"
+           autocomplete="current-password">
 
     <button id="loginBtn" onclick="login()">Login</button>
-    <p>No account? <a href="signup.html">Signup</a></p>
+
+<p><a href="forgot.html">Forgot password?</a></p>
+<p>No account? <a href="signup.html">Signup</a></p>
+
+
 </div>
 
 <script src="app.js"></script>
 </body>
 </html>
+

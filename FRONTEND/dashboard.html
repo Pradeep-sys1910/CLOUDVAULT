@@ -6,26 +6,48 @@
 </head>
 <body>
 
-<!-- logo top left -->
-<img src="logo.png" class="top-logo">
+<img src="logo.png" class="topLogo">
 
 <div class="card dashboard-card">
 
   <h2>☁️ My CloudVault</h2>
+  <div id="storageText" class="storage-info">Loading storage...</div>
 
-<div class="upload-area">
-    <input type="file" id="fileInput">
+  <div class="upload-area">
+    <div id="uploadProgressBox" class="progress-hidden">
+    <div class="progress-bar">
+        <div id="uploadProgress"></div>
+    </div>
+    <p id="uploadPercent">0%</p>
+</div>
+    <input type="file" id="fileInput" onchange="showFileName()">
+    <div id="selectedFileName" class="file-selected-text"></div>
     <button onclick="uploadFile()">Upload File</button>
 </div>
 
-<h3>📂 My Files</h3>
-<div id="fileList">Loading files...</div>
 
-<button class="logout-btn" onclick="logout()">Logout</button>
+  
 
+  <input id="searchInput" placeholder="🔎 Search files" onkeyup="searchFiles()">
+
+<select id="sortSelect" onchange="sortFiles()">
+    <option value="name">Sort by Name</option>
+    <option value="size">Sort by Size</option>
+</select>
+
+
+  <h3>📂 My Files</h3>
+
+  <!-- ❌ removed scroll container -->
+  <!-- ✅ page will scroll naturally -->
+  <div id="fileList" class="file-grid"></div>
+
+  <button class="logout-btn" onclick="logout()">Logout</button>
 
 </div>
 
 <script src="app.js"></script>
 </body>
 </html>
+
+
